@@ -5,3 +5,7 @@ openai==0.28.0
 Flask-Cors==4.0.1
 reportlab==4.2.2
 
+flask
+gunicorn=23.0.0
+requests
+flask-cors
