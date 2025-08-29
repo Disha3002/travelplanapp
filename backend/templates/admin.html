@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - AI Travel Planner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .admin-header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .admin-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .admin-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .admin-card h3 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .users-table th,
+        .users-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .users-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .user-role {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .role-user { background: #e3f2fd; color: #1976d2; }
+        .role-admin { background: #fff3e0; color: #f57c00; }
+        .role-root { background: #fce4ec; color: #c2185b; }
+        
+        .role-select {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .update-role-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+        
+        .update-role-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        .back-btn:hover {
+            background: #5a6268;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <a href="/" class="back-btn">
+            <i class="fas fa-arrow-left"></i> Back to Main App
+        </a>
+        
+        <div class="admin-header">
+            <h1><i class="fas fa-shield-alt"></i> Admin Panel</h1>
+            <p>Manage users and view system statistics</p>
+        </div>
+        
+        <div class="admin-grid">
+            <div class="admin-card">
+                <h3><i class="fas fa-chart-bar"></i> System Statistics</h3>
+                <div id="stats-container" class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading statistics...
+                </div>
+            </div>
+            
+            <div class="admin-card">
+                <h3><i class="fas fa-users"></i> User Management</h3>
+                <div id="users-container" class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading users...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class AdminPanel {
+            constructor() {
+                this.loadStats();
+                this.loadUsers();
+            }
+            
+            async loadStats() {
+                try {
+                    const response = await fetch('/api/admin/stats');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const stats = await response.json();
+                    this.renderStats(stats);
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                    document.getElementById('stats-container').innerHTML = 
+                        '<div class="error">Error loading statistics</div>';
+                }
+            }
+            
+            async loadUsers() {
+                try {
+                    const response = await fetch('/api/admin/users');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const users = await response.json();
+                    this.renderUsers(users);
+                } catch (error) {
+                    console.error('Error loading users:', error);
+                    document.getElementById('users-container').innerHTML = 
+                        '<div class="error">Error loading users</div>';
+                }
+            }
+            
+            renderStats(stats) {
+                const container = document.getElementById('stats-container');
+                container.innerHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">${stats.users.total}</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${stats.users.regular}</div>
+                            <div class="stat-label">Regular Users</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${stats.users.admin}</div>
+                            <div class="stat-label">Admins</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${stats.users.root}</div>
+                            <div class="stat-label">Root Users</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${stats.plans.total}</div>
+                            <div class="stat-label">Total Plans</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${stats.plans.with_users}</div>
+                            <div class="stat-label">Plans with Users</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            renderUsers(users) {
+                const container = document.getElementById('users-container');
+                
+                if (users.length === 0) {
+                    container.innerHTML = '<p>No users found</p>';
+                    return;
+                }
+                
+                const tableHTML = `
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${users.map(user => `
+                                <tr>
+                                    <td>${user.name || 'Anonymous'}</td>
+                                    <td>${user.email}</td>
+                                    <td>
+                                        <span class="user-role role-${user.role}">${user.role}</span>
+                                    </td>
+                                    <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                    <td>
+                                        <select class="role-select" data-user-id="${user.id}">
+                                            <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                            <option value="root" ${user.role === 'root' ? 'selected' : ''}>Root</option>
+                                        </select>
+                                        <button class="update-role-btn" onclick="adminPanel.updateUserRole(${user.id})">
+                                            Update
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                container.innerHTML = tableHTML;
+            }
+            
+            async updateUserRole(userId) {
+                const select = document.querySelector(`select[data-user-id="${userId}"]`);
+                const newRole = select.value;
+                
+                try {
+                    const response = await fetch(`/api/admin/users/${userId}/role`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ role: newRole })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    alert('User role updated successfully!');
+                    this.loadUsers(); // Reload users to show updated data
+                } catch (error) {
+                    console.error('Error updating user role:', error);
+                    alert('Error updating user role');
+                }
+            }
+        }
+        
+        // Initialize admin panel
+        const adminPanel = new AdminPanel();
+    </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+backend/google_credentials.json
+node_modules
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.env.*
+ENV/
+env/
+
+# Databases
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

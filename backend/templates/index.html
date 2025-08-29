@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Travel Planner - Smart Trip Planning</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1><i class="fas fa-plane"></i> AI Travel Planner</h1>
+                    <p>Smart trip planning with AI, weather, maps, and more!</p>
+                </div>
+                        <div class="header-right">
+            {% if user %}
+                <div id="user-section">
+                    <div class="user-info">
+                        {% if user.picture %}
+                            <img id="user-avatar" src="{{ user.picture }}" alt="User Avatar" class="user-avatar">
+                        {% else %}
+                            <div class="user-avatar-placeholder">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        {% endif %}
+                        <span id="user-name">{{ user.name or user.email }}</span>
+                    </div>
+                    {% if user.role in ['admin', 'root'] %}
+                        <a href="/admin" class="admin-btn" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.3s ease; font-family: 'Poppins', sans-serif; text-decoration: none; margin-right: 10px;">
+                            <i class="fas fa-shield-alt"></i>
+                            Admin Panel
+                        </a>
+                    {% endif %}
+                    <button id="logout-btn" class="logout-btn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Sign Out
+                    </button>
+                </div>
+            {% else %}
+                <div id="login-section">
+                    <button id="google-login-btn" class="google-login-btn">
+                        <i class="fab fa-google"></i>
+                        Sign in with Google
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+            </div>
+        </header>
+
+        <!-- Authentication Status Messages -->
+        {% if auth_status == 'success' %}
+            <div class="auth-success-message">
+                <i class="fas fa-check-circle"></i>
+                Welcome! You have successfully signed in with Google.
+            </div>
+        {% elif auth_status == 'error' %}
+            <div class="auth-error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                Authentication failed: {{ auth_message }}
+            </div>
+        {% endif %}
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="manual">Manual Planning</button>
+                    <button class="tab-btn" data-tab="ai">AI Agent</button>
+                </div>
+
+                <!-- Manual Planning Tab -->
+                <div class="tab-content active" id="manual-tab">
+                    <form id="manual-form" class="plan-form">
+                        <div class="form-group">
+                            <label for="user_name">Your Name</label>
+                            <input type="text" id="user_name" name="name" placeholder="✍️ Write your name" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="user_age">Age</label>
+                            <input type="number" id="user_age" name="age" min="1" max="120" placeholder="🎂 Write your age" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="user_gender">Gender</label>
+                            <select id="user_gender" name="gender" required>
+                                <option value="" disabled selected>🚻 Write your gender</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Choose Location (Country → State → City):</label>
+                            <div class="location-selectors">
+                                <select id="countrySelect" name="country" required>
+                                    <option value="" disabled selected>🌍 Select country</option>
+                                </select>
+                                <select id="stateSelect" name="state" disabled required>
+                                    <option value="" disabled selected>🏞️ Select state</option>
+                                </select>
+                                <select id="citySelect" name="city" disabled required>
+                                    <option value="" disabled selected>🏙️ Select city</option>
+                                </select>
+                            </div>
+                            <small class="muted">Or type a destination manually below.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="destination">Destination:</label>
+                            <input type="text" id="destination" name="destination" placeholder="e.g., Goa, Mumbai, Delhi..." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="start_date">Start Date:</label>
+                            <input type="date" id="start_date" name="start_date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="days">Number of Days:</label>
+                            <input type="number" id="days" name="days" min="1" max="30" value="3" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="mood">Trip Mood:</label>
+                            <select id="mood" name="mood" required>
+                                <option value="relaxing">😌 Relaxing</option>
+                                <option value="adventurous">🏔️ Adventurous</option>
+                                <option value="foodie">🍽️ Foodie</option>
+                                <option value="romantic">💕 Romantic</option>
+                                <option value="family">👨‍👩‍👧‍👦 Family</option>
+                                <option value="Office Trip">💼 Office Trip</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Interests:</label>
+                            <div class="interests-grid interests-cards" id="interests-cards">
+                                <div class="interest-card" data-value="history">
+                                    <i class="fas fa-landmark"></i>
+                                    <span>History</span>
+                                </div>
+                                <div class="interest-card" data-value="nature">
+                                    <i class="fas fa-tree"></i>
+                                    <span>Nature</span>
+                                </div>
+                                <div class="interest-card" data-value="art">
+                                    <i class="fas fa-palette"></i>
+                                    <span>Art</span>
+                                </div>
+                                <div class="interest-card" data-value="food">
+                                    <i class="fas fa-utensils"></i>
+                                    <span>Food</span>
+                                </div>
+                                <div class="interest-card" data-value="shopping">
+                                    <i class="fas fa-shopping-bag"></i>
+                                    <span>Shopping</span>
+                                </div>
+                                <div class="interest-card" data-value="adventure">
+                                    <i class="fas fa-mountain"></i>
+                                    <span>Adventure</span>
+                                </div>
+                                <div class="interest-card" data-value="family">
+                                    <i class="fas fa-users"></i>
+                                    <span>Family</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="interests" name="interests" value="">
+                        </div>
+                        <div class="form-group">
+                            <label for="budget">Budget per night (INR): <span id="budget-label">₹10,000</span></label>
+                            <input type="range" id="budget" name="budget" min="2000" max="20000" value="10000" step="500">
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-magic"></i> Generate Smart Plan
+                        </button>
+                    </form>
+                </div>
+
+                <!-- AI Agent Tab -->
+                <div class="tab-content" id="ai-tab">
+                    <form id="ai-form" class="plan-form">
+                        <div class="form-group">
+                            <label for="ai_name">Your Name</label>
+                            <input type="text" id="ai_name" name="name" placeholder="✍️ Write your name" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="ai_age">Age</label>
+                            <input type="number" id="ai_age" name="age" min="1" max="120" placeholder="🎂 Write your age" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="ai_gender">Gender</label>
+                            <select id="ai_gender" name="gender" required>
+                                <option value="" disabled selected>🚻 Write your gender</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Choose Location (Country → State → City):</label>
+                            <div class="location-selectors">
+                                <select id="ai_countrySelect" name="country" required>
+                                    <option value="" disabled selected>🌍 Select country</option>
+                                </select>
+                                <select id="ai_stateSelect" name="state" disabled required>
+                                    <option value="" disabled selected>🏞️ Select state</option>
+                                </select>
+                                <select id="ai_citySelect" name="city" disabled required>
+                                    <option value="" disabled selected>🏙️ Select city</option>
+                                </select>
+                            </div>
+                            <small class="muted">Select your destination to get AI-generated plans.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-prompt">Describe your dream trip:</label>
+                            <textarea id="ai-prompt" name="prompt" placeholder="e.g., I want a romantic beach vacation with temple visits, local food experiences, and sunset views" rows="4" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-days">Number of Days:</label>
+                            <select id="ai-days" name="days" required>
+                                <option value="1">1 Day</option>
+                                <option value="2">2 Days</option>
+                                <option value="3" selected>3 Days</option>
+                                <option value="4">4 Days</option>
+                                <option value="5">5 Days</option>
+                                <option value="6">6 Days</option>
+                                <option value="7">1 Week</option>
+                                <option value="10">10 Days</option>
+                                <option value="14">2 Weeks</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-mood">Trip Mood:</label>
+                            <select id="ai-mood" name="mood" required>
+                                <option value="relaxing">😌 Relaxing</option>
+                                <option value="adventurous">🏔️ Adventurous</option>
+                                <option value="foodie">🍽️ Foodie</option>
+                                <option value="romantic">💕 Romantic</option>
+                                <option value="family">👨‍👩‍👧‍👦 Family</option>
+                                <option value="Office Trip">💼 Office Trip</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-robot"></i> Generate AI Travel Plan
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Loading Section -->
+            <section id="loading-section" class="loading-section hidden">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Generating your smart travel plan...</p>
+                    <div class="loading-steps">
+                        <div class="step">🤖 AI Planning</div>
+                        <div class="step">🌤️ Weather Data</div>
+                        <div class="step">📅 Events Search</div>
+                        <div class="step">💰 Budget Calculation</div>
+                        <div class="step">🎒 Packing List</div>
+                        <div class="step">🗺️ Map Generation</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Current Plan Section -->
+            <section id="current-plan-section" class="plan-section hidden">
+                <h2 class="plan-greeting"><span class="greet-emoji">👋</span> <span id="greet-text">Your Smart Travel Plan</span></h2>
+                <p id="greet-summary" class="plan-summary"></p>
+                <div id="current-plan" class="plan-card">
+                    <!-- Plan content will be inserted here -->
+                </div>
+                <div class="plan-actions">
+                    <button id="save-plan-btn" class="btn btn-success">
+                        <i class="fas fa-save"></i> Save Plan
+                    </button>
+                    <button id="new-plan-btn" class="btn btn-secondary">
+                        <i class="fas fa-plus"></i> Create New Plan
+                    </button>
+                </div>
+            </section>
+
+            <!-- Saved Plans Section -->
+            <section class="saved-plans-section">
+                <h2><i class="fas fa-bookmark"></i> Saved Plans</h2>
+                <div id="saved-plans-list" class="plans-list">
+                    <!-- Saved plans will be displayed here -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="toast-container"></div>
+        
+        <!-- Debug Info (remove in production) -->
+        <div id="debug-info" style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px; font-size: 12px; max-width: 300px; z-index: 1000;"></div>
+    </div>
+
+    <!-- Plan Template (hidden) -->
+    <template id="plan-template">
+        <div class="plan-card" data-plan-id="">
+
+            
+            <div class="plan-header">
+                <h3 class="plan-title"></h3>
+                <div class="plan-meta">
+                    <span class="plan-days"></span>
+                    <span class="plan-mood"></span>
+                    <span class="plan-date"></span>
+                </div>
+            </div>
+            
+            <!-- Weather Section -->
+            <div class="weather-section">
+                <h4><i class="fas fa-cloud-sun"></i> Weather Forecast</h4>
+                <div class="weather-forecast">
+                    <!-- Weather forecast will be populated here -->
+                </div>
+            </div>
+
+
+
+            <!-- Attractions Section -->
+            <div class="attractions-section">
+                <h4><i class="fas fa-landmark"></i> Must-Visit Attractions</h4>
+                <div class="attractions-grid">
+                    <!-- Attractions will be populated here -->
+                </div>
+            </div>
+
+
+
+
+
+
+
+            <!-- Budget Section -->
+            <div class="budget-section">
+                <h4><i class="fas fa-wallet"></i> Budget Estimate</h4>
+                <div class="budget-info">
+                    <div class="budget-total">
+                        <span class="budget-amount" id="budget-total">₹0</span>
+                        <span class="budget-period">total</span>
+                    </div>
+                    <div class="budget-breakdown" id="budget-breakdown"></div>
+                </div>
+            </div>
+
+
+
+
+
+            <!-- Map Section -->
+            <div class="map-section">
+                <h4><i class="fas fa-map-marker-alt"></i> Interactive Map</h4>
+                <div class="map-container">
+                    <div class="map-placeholder">
+                        <i class="fas fa-map"></i>
+                        <p>Map loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Itinerary Section -->
+            <div class="itinerary-section">
+                <h4><i class="fas fa-list"></i> Daily Itinerary</h4>
+                <div class="daily-itinerary">
+                    <!-- Daily itinerary will be populated here -->
+                </div>
+            </div>
+
+            <!-- Packing Section -->
+            <div class="packing-section">
+                <h4><i class="fas fa-suitcase-rolling"></i> 🧳 Your Smart Packing List</h4>
+                <div class="packing-greeting" id="packing-greeting"></div>
+                <ul class="packing-list"></ul>
+            </div>
+
+            <!-- Plan Actions -->
+            <div class="plan-actions">
+                <button class="action-btn delete-btn" title="Delete Plan">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <script src="{{ url_for('static', filename='script.js', v=2) }}"></script>
+    <script>
+        // Default start date to today
+        document.addEventListener('DOMContentLoaded', function() {
+            const sd = document.getElementById('start_date');
+            if (sd && !sd.value) {
+                sd.valueAsDate = new Date();
+            }
+        });
+    </script>
+</body>
+</html>

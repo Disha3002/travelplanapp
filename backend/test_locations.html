@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Selector Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select { width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .location-selectors { display: flex; gap: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Location Selector Test</h1>
+    
+    <div class="form-group">
+        <label>Choose Location (Country → State → City):</label>
+        <div class="location-selectors">
+            <select id="ai_countrySelect" name="country" required>
+                <option value="" disabled selected>🌍 Select country</option>
+            </select>
+            <select id="ai_stateSelect" name="state" disabled required>
+                <option value="" disabled selected>🏞️ Select state</option>
+            </select>
+            <select id="ai_citySelect" name="city" disabled required>
+                <option value="" disabled selected>🏙️ Select city</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="debug-info"></div>
+
+    <script>
+        class LocationTest {
+            constructor() {
+                this.locations = {};
+                this.init();
+            }
+
+            async init() {
+                console.log('Initializing LocationTest...');
+                await this.loadLocations();
+                this.setupEventListeners();
+                console.log('LocationTest initialized');
+            }
+
+            async loadLocations() {
+                try {
+                    console.log('Loading locations...');
+                    const res = await fetch('/api/locations');
+                    if (!res.ok) throw new Error('Failed to load locations');
+                    const payload = await res.json();
+                    this.locations = payload.locations || payload;
+                    console.log('Locations loaded:', Object.keys(this.locations));
+                    this.populateCountries();
+                } catch (e) {
+                    console.error('Locations load error:', e);
+                    document.getElementById('debug-info').innerHTML = `<p style="color: red;">Error: ${e.message}</p>`;
+                }
+            }
+
+            setupEventListeners() {
+                const aiCountrySelect = document.getElementById('ai_countrySelect');
+                const aiStateSelect = document.getElementById('ai_stateSelect');
+                const aiCitySelect = document.getElementById('ai_citySelect');
+                
+                if (aiCountrySelect && aiStateSelect && aiCitySelect) {
+                    aiCountrySelect.addEventListener('change', () => {
+                        this.populateAIStates(aiCountrySelect.value);
+                        aiStateSelect.disabled = !aiCountrySelect.value;
+                        aiCitySelect.disabled = true;
+                    });
+                    
+                    aiStateSelect.addEventListener('change', () => {
+                        this.populateAICities(aiCountrySelect.value, aiStateSelect.value);
+                        aiCitySelect.disabled = !aiStateSelect.value;
+                    });
+                }
+            }
+
+            populateCountries() {
+                const aiCountrySelect = document.getElementById('ai_countrySelect');
+                const countries = Object.keys(this.locations || {});
+                
+                console.log('Populating countries:', countries.length, 'countries found');
+                console.log('AI country select found:', !!aiCountrySelect);
+                
+                if (aiCountrySelect) {
+                    aiCountrySelect.innerHTML = ['<option value="" disabled selected>🌍 Select country</option>', ...countries.map(c => `<option value="${c}">${c}</option>`)].join('');
+                    console.log('AI countries populated');
+                    document.getElementById('debug-info').innerHTML = `<p style="color: green;">✅ Countries loaded: ${countries.length} countries available</p>`;
+                } else {
+                    document.getElementById('debug-info').innerHTML = `<p style="color: red;">❌ Country select element not found</p>`;
+                }
+            }
+
+            populateAIStates(country) {
+                const stateSelect = document.getElementById('ai_stateSelect');
+                const citySelect = document.getElementById('ai_citySelect');
+                if (!stateSelect || !citySelect) return;
+                stateSelect.innerHTML = '<option value="" disabled selected>🏞️ Select state</option>';
+                citySelect.innerHTML = '<option value="" disabled selected>🏙️ Select city</option>';
+                if (!country || !(this.locations || {})[country]) return;
+                const states = Object.keys(this.locations[country] || {});
+                stateSelect.innerHTML = ['<option value="" disabled selected>🏞️ Select state</option>', ...states.map(s => `<option value="${s}">${s}</option>`)].join('');
+                console.log(`States populated for ${country}:`, states.length, 'states');
+            }
+
+            populateAICities(country, state) {
+                const citySelect = document.getElementById('ai_citySelect');
+                if (!citySelect) return;
+                citySelect.innerHTML = '<option value="" disabled selected>🏙️ Select city</option>';
+                if (!country || !state) return;
+                const cities = (((this.locations || {})[country] || {})[state]) || [];
+                citySelect.innerHTML = ['<option value="" disabled selected>🏙️ Select city</option>', ...cities.map(c => `<option value="${c}">${c}</option>`)].join('');
+                console.log(`Cities populated for ${state}, ${country}:`, cities.length, 'cities');
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new LocationTest();
+        });
+    </script>
+</body>
+</html>
