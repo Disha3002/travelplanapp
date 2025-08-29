@@ -59,7 +59,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 CORS(app, supports_credentials=True)
 
-
+# Google OAuth Configuration
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -69,9 +69,10 @@ GOOGLE_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI",
     "http://localhost:5000/auth/google/callback"
 )
-
-
-
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    print("Warning: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not found. Login will be disabled.")
+    GOOGLE_OAUTH_AVAILABLE = False
+    
 # OAuth 2.0 configuration
 oauth_config = {
     'web': {
